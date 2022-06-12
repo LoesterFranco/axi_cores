@@ -18,7 +18,8 @@
 
 
 localparam ADDR_WIDTH = 32;
-localparam DATA_WIDTH = 32;
+localparam DATA_WIDTH_ENUM = 5;
+localparam DATA_WIDTH = 2 ** DATA_WIDTH_ENUM;
 localparam DATA_STROBES = DATA_WIDTH/8;
 localparam DEPTH = 10;
 localparam ID_WIDTH = 4;
@@ -59,11 +60,11 @@ wire [ID_WIDTH-1:0] axi_rid;
 wire axi_rlast;
 
 
-reg [31:0] mem [9:0];
+reg [DATA_WIDTH-1:0] mem [DEPTH-1:0];
 
 
 
-`TOP #(DEPTH) bram (
+`TOP #(DEPTH, ADDR_WIDTH, ID_WIDTH, DATA_WIDTH_ENUM) bram (
 	.*
 );
 
@@ -180,7 +181,7 @@ end endtask
 task r_expect;
 input valid;
 input [1:0] resp;
-input [31:0] data;
+input [DATA_WIDTH-1:0] data;
 input [ID_WIDTH-1:0] id;
 input last;
 begin
@@ -321,7 +322,7 @@ input [ID_WIDTH-1:0] id;
 input [255:0] stall;
 begin
 	integer i;
-	$display("[$d] [axi_bram_tb] Read start addr = 0x%x, id = 0x%x", $time, addr, id);
+	$display("[%d] [axi_bram_tb] Read start addr = 0x%x, id = 0x%x", $time, addr, id);
 	mask = (len << 2);
 	// AR request
 	@(negedge clk)
@@ -336,7 +337,7 @@ begin
 	for(i = 0; i < len+1; i = i + 1) begin
 		// R response stalled
 		if(stall[i]) begin
-			$display("[$d] [axi_bram_tb] Read generate stall addr_reg = 0x%x, id = 0x%x", $time, addr_reg, id);
+			$display("[%d] [axi_bram_tb] Read generate stall addr_reg = 0x%x, id = 0x%x", $time, addr_reg, id);
 			@(negedge clk);
 			axi_rready = 0;
 			ar_noop();
@@ -348,7 +349,7 @@ begin
 				i == len);
 			expect_all(1, 1, 1, 1, 0);
 		end else begin
-			$display("[$d] [axi_bram_tb] Not stalling read response addr = 0x%x, id = 0x%x", $time, addr, id);
+			$display("[%d] [axi_bram_tb] Not stalling read response addr = 0x%x, id = 0x%x", $time, addr, id);
 		end
 		// R response accepted
 		@(negedge clk);
@@ -368,7 +369,7 @@ begin
 	end
 	@(negedge clk);
 	poke_all(1,1,1, 1,1);
-	$display("[$d] [axi_bram_tb] Read done addr = 0x%x", $time, addr);
+	$display("[%d] [axi_bram_tb] Read done addr = 0x%x", $time, addr);
 end
 endtask
 

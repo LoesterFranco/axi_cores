@@ -22,7 +22,8 @@ module armleo_axi_bram(
 parameter DEPTH = 1024; // 1024 x 32 default
 parameter ADDR_WIDTH = 32; // Determines the size of addr bus. If memory outside this peripheral is accessed BRESP/RRESP is set to DECERR
 parameter ID_WIDTH = 4; // AXI ID bit width
-parameter DATA_WIDHT_ENUM = 5; // Allowed values = 3 (8bit); 4 (16bit); 5 (32bit); 6 (64bit)
+parameter DATA_WIDHT_ENUM = 5; // Allowed values = 5 (32bit)
+// TODO: Add and test other allowed values for data_width
 
 
 localparam SIZE_WIDTH = 3;
@@ -87,17 +88,17 @@ localparam DEPTH_CLOG2 = $clog2(DEPTH);
 
 // NOTE: This file is not requirement
 `ifdef BRAM_DEBUG
-`include "assert.vh"
+`include "armleo_assert.vh"
 `endif
 
 
-reg [DEPTH_CLOG2-1+2:0] address;
+reg [DEPTH_CLOG2-1 + (DATA_WIDHT_ENUM-3):0] address;
 reg read, write;
 
 armleo_mem_1rwm #(DEPTH_CLOG2, DATA_WIDTH) backstorage  (
     .clk(clk),
     
-    .address(address[DEPTH_CLOG2-1+2:2]),
+    .address(address[DEPTH_CLOG2-1 + (DATA_WIDHT_ENUM-3) : (DATA_WIDHT_ENUM-3)]),
 
     .read(read),
     .readdata(axi_rdata),
