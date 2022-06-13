@@ -1,34 +1,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 // 
-// This file is part of ArmleoCPU.
-// ArmleoCPU is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-// 
-// ArmleoCPU is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-// 
-// You should have received a copy of the GNU General Public License
-// along with ArmleoCPU.  If not, see <https://www.gnu.org/licenses/>.
-// 
-// Copyright (C) 2016-2021, Arman Avetisyan, see COPYING file or LICENSE file
-// SPDX-License-Identifier: GPL-3.0-or-later
-// 
-// Project:	ArmleoCPU
+// Copyright (C) 2016-2021, Arman Avetisyan
 //
 // Purpose:	AXI4 Register slice
 ////////////////////////////////////////////////////////////////////////////////
 
-
-`include "armleocpu_defines.vh"
-
-`TIMESCALE_DEFINE
+`include "armleo_axi_defs.svh"
 
 
-module armleosoc_axi_register_slice (
+module armleo_axi_register_slice (
     clk, rst_n,
     
     `AXI_FULL_MODULE_IO_NAMELIST(upstream_axi_),
@@ -43,6 +23,7 @@ module armleosoc_axi_register_slice (
     parameter PASSTHROUGH = 0;
 
     localparam DATA_STROBES = DATA_WIDTH/8;
+
 
     input wire          clk;
     input wire          rst_n;
@@ -73,7 +54,7 @@ localparam AW_AR_DW = ADDR_WIDTH
 }
 
 // AW Bus
-armleocpu_register_slice #(
+armleo_register_slice #(
     .DW(AW_AR_DW),
     .PASSTHROUGH(PASSTHROUGH)
 ) U_aw (
@@ -90,7 +71,7 @@ armleocpu_register_slice #(
 );
 
 // W Bus
-armleocpu_register_slice #(
+armleo_register_slice #(
     .DW(DATA_WIDTH + DATA_STROBES + 1),
     .PASSTHROUGH(PASSTHROUGH)
 ) U_w(
@@ -115,7 +96,7 @@ armleocpu_register_slice #(
 );
 
 // B Bus
-armleocpu_register_slice #(
+armleo_register_slice #(
     .DW(ID_WIDTH + 2),
     .PASSTHROUGH(PASSTHROUGH)
 ) U_b(
@@ -138,7 +119,7 @@ armleocpu_register_slice #(
 );
 
 // AR Bus
-armleocpu_register_slice #(
+armleo_register_slice #(
     .DW(AW_AR_DW),
     .PASSTHROUGH(PASSTHROUGH)
 ) U_ar (
@@ -155,7 +136,7 @@ armleocpu_register_slice #(
 );
 
 // R Bus
-armleocpu_register_slice #(
+armleo_register_slice #(
     .DW(ID_WIDTH + 2 + 1 + DATA_WIDTH),
     .PASSTHROUGH(PASSTHROUGH)
 ) U_r (
@@ -186,6 +167,4 @@ armleocpu_register_slice #(
 
 endmodule
 
-
-`include "armleocpu_undef.vh"
 

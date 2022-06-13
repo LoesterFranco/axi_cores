@@ -1,19 +1,19 @@
 CAPI=2:
-name: armleo:armleo_cores:armleo_axi_bram:1.0.0
-description: AXI4 1rw BRAM;
+name: armleo:armleo_cores:armleo_axi_register_slice:1.0.0
+description: AXI4 register slice for improved frequency at the cost of latency
 
 filesets:
   rtl:
     files:
-      - rtl/armleo_axi_bram.sv
+      - rtl/armleo_axi_register_slice.sv
     depend:
       - armleo:armleo_cores:armleo_utils
-      - armleo:armleo_cores:armleo_mem_1rwm
+      - armleo:armleo_cores:armleo_register_slice
     file_type: systemVerilogSource
   
   tb:
     files:
-      - tb/armleo_axi_bram_tb.sv
+      - tb/armleo_axi_register_slice_tb.sv
     file_type: systemVerilogSource
     depend:
       - armleo:armleo_cores:armleo_iverilog_vip
@@ -24,7 +24,7 @@ targets:
   default: &default
     filesets:
       - rtl
-    toplevel: armleo_axi_bram
+    toplevel: armleo_axi_register_slice
     
   sim:
     # Copy all key/value pairs from the "default" target.
@@ -33,7 +33,7 @@ targets:
     default_tool: icarus
     filesets_append:
       - tb
-    toplevel: armleo_axi_bram_tb
+    toplevel: armleo_axi_register_slice_tb
     tools:
       icarus:
         iverilog_options:
