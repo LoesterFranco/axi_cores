@@ -1,0 +1,57 @@
+CAPI=2:
+name: armleo:armleo_cores:armleo_axi_mux:1.0.0
+description: AXI4 multiplexer
+
+filesets:
+  rtl:
+    files:
+      - rtl/armleo_axi_mux.sv
+    depend:
+      - armleo:armleo_cores:armleo_utils
+      - armleo:armleo_cores:armleo_round_robin
+    file_type: systemVerilogSource
+  
+  tb:
+    files:
+      - tb/armleo_axi_mux_tb.sv
+    file_type: systemVerilogSource
+    depend:
+      - armleo:armleo_cores:armleo_iverilog_vip
+
+targets:
+  # The "default" target is special in FuseSoC and used in dependencies.
+  # The "&default" is a YAML anchor referenced later.
+  default: &default
+    filesets:
+      - rtl
+    toplevel: armleo_axi_mux
+    
+  sim:
+    # Copy all key/value pairs from the "default" target.
+    <<: *default
+    description: Simulate the design
+    default_tool: icarus
+    filesets_append:
+      - tb
+    toplevel: armleo_axi_mux_tb
+    tools:
+      icarus:
+        iverilog_options:
+          - -g2012 # Use SystemVerilog-2012
+      modelsim:
+        vlog_options:
+          - -timescale=1ns/1ns
+  lint:
+    <<: *default
+    default_tool : verilator
+    tools:
+      verilator:
+        mode : lint-only
+  synth:
+    <<: *default
+    description: Synthesize using yosys
+    default_tool: yosys
+    tools:
+        yosys:
+          arch: xilinx
+          output_format: edif
