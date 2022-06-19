@@ -2,7 +2,7 @@
 // 
 // Copyright (C) 2016-2021, Arman Avetisyan
 //
-// Purpose:	AXI4 Register slice
+// Purpose:	AXI4 Multiple hosts to one client multiplexer
 // 
 // Note for contributors: Dont chase perfomance
 //      If somebody decides to improve the perfomance use the same architecture as the pulp's axi mux
@@ -14,6 +14,7 @@
 
 `include "armleo_axi_defs.svh"
 `include "armleo_access_packed.svh"
+
 `default_nettype none
 module armleo_axi_mux (
     clk, rst_n,
@@ -21,13 +22,14 @@ module armleo_axi_mux (
     `AXI_FULL_MODULE_IO_NAMELIST(upstream_axi_),
     `AXI_FULL_MODULE_IO_NAMELIST(downstream_axi_)
 );
-    parameter HOST_NUMBER = 3;
+    parameter HOST_NUMBER = 5;
     localparam HOST_NUMBER_CLOG2 = $clog2(HOST_NUMBER);
     parameter ADDR_WIDTH = 32;  
     parameter DATA_WIDTH = 32;
     parameter ID_WIDTH = 4;
 
-    parameter PASSTHROUGH = 0;
+    // Future feature: Passthrought / registered downstream interface
+    // parameter PASSTHROUGH = 0;
 
     localparam DATA_STROBES = DATA_WIDTH/8;
 
@@ -75,6 +77,17 @@ module armleo_axi_mux (
     output logic [HOST_NUMBER*DATA_WIDTH-1:0]   upstream_axi_rdata;
     output logic [HOST_NUMBER*ID_WIDTH-1:0]     upstream_axi_rid;
 
+////////////////////////////////////////////////////////////////////////////////
+// 
+// TODO: Make sure only one transaction goes through
+// TODO: Make sure only one transaction goes through
+// TODO: Make sure only one transaction goes through
+// TODO: Make sure only one transaction goes through
+// TODO: Make sure only one transaction goes through
+// TODO: Make sure only one transaction goes through
+// TODO: Make sure only one transaction goes through
+// 
+////////////////////////////////////////////////////////////////////////////////
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -90,38 +103,50 @@ logic [HOST_NUMBER-1:0] ar_grant; // comb
 logic [HOST_NUMBER-1:0] ar_lock; // ff, Contains locked grant signal
 logic [HOST_NUMBER-1:0] ar_lock_nxt; // comb, lock ff's D pins
 
+logic ar_done;
+logic ar_done_nxt;
+
 logic [HOST_NUMBER-1:0] ar_select; // comb, used to make the MUX selection
 logic [HOST_NUMBER_CLOG2-1:0] ar_select_idx;
 
-armleo_round_robin ar_arbiter (
+armleo_round_robin #(.WIDTH(HOST_NUMBER)) ar_arbiter (
     .clk(clk),
     .rst_n(rst_n),
     .request({upstream_axi_arvalid} & {HOST_NUMBER{ar_arbiter_decision_request}}),
-    .grant(grant)
+    .grant(ar_grant)
 );
 
 
 always_ff @(posedge clk) begin
     if(!rst_n) begin
         ar_lock <= 0;
+        ar_done <= 0;
     end else begin
         ar_lock <= ar_lock_nxt;
+        ar_done <= ar_done_nxt;
     end
 end
 
 always_comb begin
+    ar_done_nxt = ar_done;
     ar_lock_nxt = ar_lock;
     ar_arbiter_decision_request = 0;
     if(!(|ar_lock)) begin // No decision has been made yet
         ar_arbiter_decision_request = 1; // Ask arbiter for decision
         ar_lock_nxt = ar_grant; // Save decision
         ar_select = ar_grant; // Passthrough the transaction early
+        ar_done_nxt = 0; // Reset ar done
     end else begin // We have a decision
         ar_select = ar_lock;  // Passthrough the transaction, even if it's last transaction
+        
+        if(upstream_axi_arvalid[ar_select_idx] && upstream_axi_arready[ar_select_idx]) begin
+            ar_done_nxt = 1;
+        end
         if(
-            (downstream_axi_rvalid && downstream_axi_rready && downstream_axi_rlast)
+            (ar_done && downstream_axi_rvalid && downstream_axi_rready && downstream_axi_rlast)
         ) begin // If one transaction is completed
             ar_lock_nxt = 0;
+            read_done_nxt = 0;
         end
     end
 end
@@ -153,11 +178,11 @@ logic [HOST_NUMBER-1:0] aw_lock_nxt; // comb, lock ff's D pins
 logic [HOST_NUMBER-1:0] aw_select; // comb, used to make the MUX selection
 logic [HOST_NUMBER_CLOG2-1:0] aw_select_idx;
 
-armleo_round_robin aw_arbiter (
+armleo_round_robin #(.WIDTH(HOST_NUMBER))aw_arbiter (
     .clk(clk),
     .rst_n(rst_n),
     .request({upstream_axi_awvalid} & {HOST_NUMBER{aw_arbiter_decision_request}}),
-    .grant(grant)
+    .grant(aw_grant)
 );
 
 
@@ -240,6 +265,51 @@ always_comb begin
     //upstream_axi_rdata      [`ACCESS_PACKED(ar_select_idx, DATA_WIDTH)] = downstream_axi_rdata;
     //upstream_axi_rid        [`ACCESS_PACKED(ar_select_idx, ID_WIDTH)]   = downstream_axi_rid;
 end
+
+
+////////////////////////////////////////////////////////////////////////////////
+// 
+// 4. AW MUX
+// 
+////////////////////////////////////////////////////////////////////////////////
+
+
+
+always_comb begin
+    upstream_axi_awready = 0;
+    upstream_axi_awready[`ACCESS_PACKED(aw_select_idx, 1)]    = downstream_axi_awready;
+    
+    downstream_axi_awvalid  = upstream_axi_awvalid  [`ACCESS_PACKED(aw_select_idx, 1)];
+    downstream_axi_awaddr   = upstream_axi_awaddr   [`ACCESS_PACKED(aw_select_idx, ADDR_WIDTH)];
+    downstream_axi_awlen    = upstream_axi_awlen    [`ACCESS_PACKED(aw_select_idx, 8)];
+    downstream_axi_awsize   = upstream_axi_awsize   [`ACCESS_PACKED(aw_select_idx, 3)];
+    downstream_axi_awburst  = upstream_axi_awburst  [`ACCESS_PACKED(aw_select_idx, 2)];
+    downstream_axi_awid     = upstream_axi_awid     [`ACCESS_PACKED(aw_select_idx, ID_WIDTH)];
+    downstream_axi_awlock   = upstream_axi_awlock   [`ACCESS_PACKED(aw_select_idx, 1)];
+    downstream_axi_awprot   = upstream_axi_awprot   [`ACCESS_PACKED(aw_select_idx, 3)];
+end
+
+always_comb begin
+    upstream_axi_wready = 0;
+    upstream_axi_wready[`ACCESS_PACKED(aw_select_idx, 1)]    = downstream_axi_wready;
+    
+    downstream_axi_wvalid  = upstream_axi_wvalid  [`ACCESS_PACKED(aw_select_idx, 1)];
+    downstream_axi_wdata   = upstream_axi_wdata   [`ACCESS_PACKED(aw_select_idx, DATA_WIDTH)];
+    downstream_axi_wstrb   = upstream_axi_wstrb   [`ACCESS_PACKED(aw_select_idx, DATA_STROBES)];
+    downstream_axi_wlast   = upstream_axi_wlast   [`ACCESS_PACKED(aw_select_idx, 1)];
+end
+
+always_comb begin
+    upstream_axi_bvalid = 0;
+
+    downstream_axi_bready   = upstream_axi_bready[`ACCESS_PACKED(aw_select_idx, 1)];
+    upstream_axi_bvalid     [`ACCESS_PACKED(aw_select_idx, 1)]          = downstream_axi_bvalid;
+
+    upstream_axi_bresp = {HOST_NUMBER{downstream_axi_bresp}};
+    upstream_axi_bid   = {HOST_NUMBER{downstream_axi_bid}};
+
+end
+
 
 
 endmodule
