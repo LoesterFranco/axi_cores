@@ -7,11 +7,11 @@
 `define TIMEOUT 1000000
 `define SYNC_RST
 `define CLK_HALF_PERIOD 10
-`define TOP armleo_axi_mux
-`define TOP_TB armleo_axi_mux_tb
+`define TOP armleo_axi_read_mux
+`define TOP_TB armleo_axi_read_mux_tb
 
 
-`define MAXIMUM_ERRORS 2
+`define MAXIMUM_ERRORS 20
 `include "armleo_template.svh"
 `include "armleo_axi_defs.svh"
 `include "armleo_access_packed.svh"
@@ -24,8 +24,8 @@ localparam ID_WIDTH = 4;
 localparam HOST_NUMBER = 5;
 localparam HOST_NUMBER_CLOG2 = $clog2(HOST_NUMBER);
 
-`AXI_FULL_SIGNALS(downstream_axi_, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
-
+`AXI_FULL_READ_SIGNALS(downstream_axi_, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
+/*
 
     logic   [HOST_NUMBER-1:0]              	upstream_axi_awvalid;
     logic   [HOST_NUMBER-1:0]               upstream_axi_awready;
@@ -47,7 +47,7 @@ localparam HOST_NUMBER_CLOG2 = $clog2(HOST_NUMBER);
     logic   [HOST_NUMBER-1:0]              	upstream_axi_bready;
     logic   [HOST_NUMBER*2-1:0]            	upstream_axi_bresp;
     logic   [HOST_NUMBER*ID_WIDTH-1:0]     	upstream_axi_bid;
-    
+    */
     logic   [HOST_NUMBER-1:0]              	upstream_axi_arvalid;
     logic   [HOST_NUMBER-1:0]              	upstream_axi_arready;
     logic   [HOST_NUMBER*ADDR_WIDTH-1:0]   	upstream_axi_araddr;
@@ -76,9 +76,11 @@ localparam HOST_NUMBER_CLOG2 = $clog2(HOST_NUMBER);
 
 
 //-------------AW---------------
+/*
 task upstream_aw_noop;
 input [HOST_NUMBER_CLOG2-1:0] host_num;
 begin
+    upstream_aw_op = 0;
 	upstream_axi_awvalid[host_num] = 0;
 end endtask
 
@@ -97,6 +99,7 @@ begin
     `assert_equal((upstream_axi_awburst [`ACCESS_PACKED(host_num, 2)])            , (downstream_axi_awburst));
     `assert_equal((upstream_axi_awid    [`ACCESS_PACKED(host_num, ID_WIDTH)])     , (downstream_axi_awid));
     `assert_equal((upstream_axi_awlock  [`ACCESS_PACKED(host_num, 1)])            , (downstream_axi_awlock));
+    `assert_equal((upstream_axi_awprot  [`ACCESS_PACKED(host_num, 3)])            , (downstream_axi_awprot));
 end endtask
 
 task upstream_aw_op;
@@ -130,7 +133,7 @@ end endtask
 
 
 
-/*
+
 //-------------W---------------
 task w_noop; begin
 	axi_wvalid = 0;
@@ -168,32 +171,58 @@ begin
 		`assert_equal(axi_bid, id)
 	end
 end endtask
+*/
 
-//-------------AR---------------
-task ar_noop; begin
-	axi_arvalid = 0;
-end endtask
 
-task ar_op; 
-input [ADDR_WIDTH-1:0] addr;
-input [ID_WIDTH-1:0] id;
-input [1:0] burst;
-input [7:0] len;
+task upstream_ar_op;
+input [HOST_NUMBER_CLOG2-1:0] host_num;
 begin
-	axi_arvalid = 1;
-	axi_araddr = addr;
-	axi_arlen = len;
-	axi_arsize = 2; // 4 bytes
-	axi_arburst = burst; // Increment
-	axi_arid = id;
+	upstream_axi_arvalid[host_num] = 1;
+
+	upstream_axi_araddr  [`ACCESS_PACKED(host_num, ADDR_WIDTH)]  = $urandom & ({ADDR_WIDTH{1'b1}});
+	upstream_axi_arlen   [`ACCESS_PACKED(host_num, 8)]           = $urandom & ({8{1'b1}});
+	upstream_axi_arsize  [`ACCESS_PACKED(host_num, 3)]           = $urandom & ({3{1'b1}});
+	upstream_axi_arburst [`ACCESS_PACKED(host_num, 2)]           = $urandom & ({2{1'b1}});
+	upstream_axi_arid    [`ACCESS_PACKED(host_num, ID_WIDTH)]    = $urandom & ({ID_WIDTH{1'b1}});
+    upstream_axi_arlock  [`ACCESS_PACKED(host_num, 1)]           = $urandom & ({1{1'b1}});
+    upstream_axi_arprot  [`ACCESS_PACKED(host_num, 3)]           = $urandom & ({3{1'b1}});
 end endtask
 
-task ar_expect;
-input ready;
+
+task upstream_ar_noop;
+input [HOST_NUMBER_CLOG2-1:0] host_num;
 begin
-	`assert_equal(axi_arready, ready)
+    upstream_ar_op(host_num);
+    upstream_axi_arvalid[host_num] = 0;
+end
+endtask
+
+task downstream_ar_op;
+input arready;
+begin
+    downstream_axi_arready = arready;
 end endtask
 
+task expect_downstream_ar;
+input [HOST_NUMBER_CLOG2-1:0] host_num;
+begin
+    `assert_equal((upstream_axi_araddr  [`ACCESS_PACKED(host_num, ADDR_WIDTH)])   , (downstream_axi_araddr));
+    `assert_equal((upstream_axi_arlen   [`ACCESS_PACKED(host_num, 8)])            , (downstream_axi_arlen));
+    `assert_equal((upstream_axi_arsize  [`ACCESS_PACKED(host_num, 3)])            , (downstream_axi_arsize));
+    `assert_equal((upstream_axi_arburst [`ACCESS_PACKED(host_num, 2)])            , (downstream_axi_arburst));
+    `assert_equal((upstream_axi_arid    [`ACCESS_PACKED(host_num, ID_WIDTH)])     , (downstream_axi_arid));
+    `assert_equal((upstream_axi_arlock  [`ACCESS_PACKED(host_num, 1)])            , (downstream_axi_arlock));
+    `assert_equal((upstream_axi_arprot  [`ACCESS_PACKED(host_num, 3)])            , (downstream_axi_arprot));
+end endtask
+
+task upstream_ar_expect;
+input [HOST_NUMBER_CLOG2-1:0] host_num;
+input [0:0] ready;
+begin
+    `assert_equal((upstream_axi_arready  [`ACCESS_PACKED(host_num, 1)]), ready);
+end endtask
+
+/*
 //-------------R---------------
 task r_noop; begin
 	axi_rready = 0;
@@ -261,13 +290,18 @@ initial begin
     integer i;
     integer word;
     @(posedge rst_n);
-    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
-        upstream_aw_noop(i);
-    end
 
     for(i = 0; i < HOST_NUMBER; i = i + 1) begin
-        upstream_aw_expect(i, 0);
+        upstream_ar_noop(i);
+        
     end
+    downstream_ar_op(0);
+    #5
+    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+        upstream_ar_expect(i, 0);
+    end
+    @(negedge clk);
+    
 
     @(negedge clk);
     

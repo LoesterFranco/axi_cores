@@ -92,77 +92,6 @@ module armleo_axi_mux (
 
 ////////////////////////////////////////////////////////////////////////////////
 // 
-// 1. AR Arbiter
-// 
-////////////////////////////////////////////////////////////////////////////////
-// When asserted then decision is requested from arbiter
-logic ar_arbiter_decision_request; // comb
-
-logic [HOST_NUMBER-1:0] ar_grant; // comb
-
-logic [HOST_NUMBER-1:0] ar_lock; // ff, Contains locked grant signal
-logic [HOST_NUMBER-1:0] ar_lock_nxt; // comb, lock ff's D pins
-
-logic ar_done;
-logic ar_done_nxt;
-
-logic [HOST_NUMBER-1:0] ar_select; // comb, used to make the MUX selection
-logic [HOST_NUMBER_CLOG2-1:0] ar_select_idx;
-
-armleo_round_robin #(.WIDTH(HOST_NUMBER)) ar_arbiter (
-    .clk(clk),
-    .rst_n(rst_n),
-    .request({upstream_axi_arvalid} & {HOST_NUMBER{ar_arbiter_decision_request}}),
-    .grant(ar_grant)
-);
-
-
-always_ff @(posedge clk) begin
-    if(!rst_n) begin
-        ar_lock <= 0;
-        ar_done <= 0;
-    end else begin
-        ar_lock <= ar_lock_nxt;
-        ar_done <= ar_done_nxt;
-    end
-end
-
-always_comb begin
-    ar_done_nxt = ar_done;
-    ar_lock_nxt = ar_lock;
-    ar_arbiter_decision_request = 0;
-    if(!(|ar_lock)) begin // No decision has been made yet
-        ar_arbiter_decision_request = 1; // Ask arbiter for decision
-        ar_lock_nxt = ar_grant; // Save decision
-        ar_select = ar_grant; // Passthrough the transaction early
-        ar_done_nxt = 0; // Reset ar done
-    end else begin // We have a decision
-        ar_select = ar_lock;  // Passthrough the transaction, even if it's last transaction
-        
-        if(upstream_axi_arvalid[ar_select_idx] && upstream_axi_arready[ar_select_idx]) begin
-            ar_done_nxt = 1;
-        end
-        if(
-            (ar_done && downstream_axi_rvalid && downstream_axi_rready && downstream_axi_rlast)
-        ) begin // If one transaction is completed
-            ar_lock_nxt = 0;
-            read_done_nxt = 0;
-        end
-    end
-end
-
-always_comb begin
-    ar_select_idx = 0;
-    for (int i = 0; i < HOST_NUMBER; i++) begin
-        if (ar_select[i]) begin
-            ar_select_idx = i[HOST_NUMBER_CLOG2-1:0];
-        end
-    end
-end
-
-
-////////////////////////////////////////////////////////////////////////////////
-// 
 // 2. AW Arbiter
 // 
 ////////////////////////////////////////////////////////////////////////////////
@@ -220,52 +149,6 @@ always_comb begin
         end
     end
 end
-
-////////////////////////////////////////////////////////////////////////////////
-// 
-// 3. AR MUX
-// 
-////////////////////////////////////////////////////////////////////////////////
-
-always_comb begin
-    upstream_axi_arready = 0;
-    upstream_axi_arready[`ACCESS_PACKED(ar_select_idx, 1)]    = downstream_axi_arready;
-    
-    downstream_axi_arvalid  = upstream_axi_arvalid  [`ACCESS_PACKED(ar_select_idx, 1)];
-    downstream_axi_araddr   = upstream_axi_araddr   [`ACCESS_PACKED(ar_select_idx, ADDR_WIDTH)];
-    downstream_axi_arlen    = upstream_axi_arlen    [`ACCESS_PACKED(ar_select_idx, 8)];
-    downstream_axi_arsize   = upstream_axi_arsize   [`ACCESS_PACKED(ar_select_idx, 3)];
-    downstream_axi_arburst  = upstream_axi_arburst  [`ACCESS_PACKED(ar_select_idx, 2)];
-    downstream_axi_arid     = upstream_axi_arid     [`ACCESS_PACKED(ar_select_idx, ID_WIDTH)];
-    downstream_axi_arlock   = upstream_axi_arlock   [`ACCESS_PACKED(ar_select_idx, 1)];
-    downstream_axi_arprot   = upstream_axi_arprot   [`ACCESS_PACKED(ar_select_idx, 3)];
-end
-
-always_comb begin
-    //downstream_axi_rready = 0;
-    upstream_axi_rvalid = 0;
-    //upstream_axi_rresp = 0;
-    //upstream_axi_rlast = 0;
-    //upstream_axi_rdata = 0;
-    //upstream_axi_rid = 0;
-
-    downstream_axi_rready   = upstream_axi_rready[`ACCESS_PACKED(ar_select_idx, 1)];
-    upstream_axi_rvalid     [`ACCESS_PACKED(ar_select_idx, 1)]          = downstream_axi_rvalid;
-
-    upstream_axi_rresp = {HOST_NUMBER{downstream_axi_rresp}};
-    upstream_axi_rlast = {HOST_NUMBER{downstream_axi_rlast}};
-    upstream_axi_rdata = {HOST_NUMBER{downstream_axi_rdata}};
-    upstream_axi_rid   = {HOST_NUMBER{downstream_axi_rid}};
-
-
-    //  Maybe output the data regardless of select, since valid is only raised for one host
-    
-    //upstream_axi_rresp      [`ACCESS_PACKED(ar_select_idx, 2)]          = downstream_axi_rresp;
-    //upstream_axi_rlast      [`ACCESS_PACKED(ar_select_idx, 1)]          = downstream_axi_rlast;
-    //upstream_axi_rdata      [`ACCESS_PACKED(ar_select_idx, DATA_WIDTH)] = downstream_axi_rdata;
-    //upstream_axi_rid        [`ACCESS_PACKED(ar_select_idx, ID_WIDTH)]   = downstream_axi_rid;
-end
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // 

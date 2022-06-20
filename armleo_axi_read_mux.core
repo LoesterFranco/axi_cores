@@ -1,11 +1,11 @@
 CAPI=2:
-name: armleo:armleo_cores:armleo_axi_mux:1.0.0
+name: armleo:armleo_cores:armleo_axi_read_mux:1.0.0
 description: AXI4 multiplexer
 
 filesets:
   rtl:
     files:
-      - rtl/armleo_axi_mux.sv
+      - rtl/armleo_axi_read_mux.sv
     depend:
       - armleo:armleo_cores:armleo_utils
       - armleo:armleo_cores:armleo_round_robin
@@ -13,7 +13,7 @@ filesets:
   
   tb:
     files:
-      - tb/armleo_axi_mux_tb.sv
+      - tb/armleo_axi_read_mux_tb.sv
     file_type: systemVerilogSource
     depend:
       - armleo:armleo_cores:armleo_iverilog_vip
@@ -24,7 +24,7 @@ targets:
   default: &default
     filesets:
       - rtl
-    toplevel: armleo_axi_mux
+    toplevel: armleo_axi_read_mux
     
   sim:
     # Copy all key/value pairs from the "default" target.
@@ -33,7 +33,7 @@ targets:
     default_tool: icarus
     filesets_append:
       - tb
-    toplevel: armleo_axi_mux_tb
+    toplevel: armleo_axi_read_mux_tb
     tools:
       icarus:
         iverilog_options:
