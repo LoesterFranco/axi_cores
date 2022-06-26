@@ -24,7 +24,7 @@ module armleo_axi_read_mux (
     input wire          clk;
     input wire          rst_n;
 
-    `AXI_FULL_IO_HOST     (downstream_axi_, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
+    `AXI_FULL_READ_IO_HOST     (downstream_axi_, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
     
 
     input wire   [HOST_NUMBER-1:0]              upstream_axi_arvalid;
@@ -101,10 +101,8 @@ always @(*) begin
     arbiter_decision_request = 0;
 
     r_select = 0;
-    r_enable = 0;
 
     ar_select = 0;
-    ar_enable = 0;
 
     if(!(|lock)) begin // No decision has been made yet
         arbiter_decision_request = 1; // Ask arbiter for decision
@@ -117,7 +115,7 @@ always @(*) begin
             ar_done_nxt = 0; // Reset ar done
         end
     end else begin // We have a decision
-        ar_select = lock & {HOST_NUMBER{!ar_done_nxt}};  // Passthrough the transaction, even if it's last transaction
+        ar_select = lock & {HOST_NUMBER{!ar_done_nxt}};  // Passthrough the transaction, but only if we didnt pass it yet
         
         r_select = lock;
         if(upstream_axi_arvalid[ar_select_idx] && upstream_axi_arready[ar_select_idx]) begin
@@ -183,7 +181,7 @@ always @(*) begin
             r_select_idx = i[HOST_NUMBER_CLOG2-1:0];
         end
     end
-
+    r_enable = |r_select;
     upstream_axi_rvalid = 0;
 
     downstream_axi_rready   = upstream_axi_rready[`ACCESS_PACKED(r_select_idx, 1)] & r_enable;

@@ -75,109 +75,33 @@ localparam HOST_NUMBER_CLOG2 = $clog2(HOST_NUMBER);
 );
 
 
-//-------------AW---------------
-/*
-task upstream_aw_noop;
+task downstream_ar_op;
+input arready;
+begin
+    downstream_axi_arready = arready;
+end endtask
+
+task downstream_ar_expect;
 input [HOST_NUMBER_CLOG2-1:0] host_num;
-begin
-    upstream_aw_op = 0;
-	upstream_axi_awvalid[host_num] = 0;
-end endtask
-
-task downstream_aw_op;
-input awready;
-begin
-    downstream_axi_awready = awready;
-end endtask
-
-task expect_downstream_aw;
-input [HOST_NUMBER_CLOG2-1:0] host_num;
-begin
-    `assert_equal((upstream_axi_awaddr  [`ACCESS_PACKED(host_num, ADDR_WIDTH)])   , (downstream_axi_awaddr));
-    `assert_equal((upstream_axi_awlen   [`ACCESS_PACKED(host_num, 8)])            , (downstream_axi_awlen));
-    `assert_equal((upstream_axi_awsize  [`ACCESS_PACKED(host_num, 3)])            , (downstream_axi_awsize));
-    `assert_equal((upstream_axi_awburst [`ACCESS_PACKED(host_num, 2)])            , (downstream_axi_awburst));
-    `assert_equal((upstream_axi_awid    [`ACCESS_PACKED(host_num, ID_WIDTH)])     , (downstream_axi_awid));
-    `assert_equal((upstream_axi_awlock  [`ACCESS_PACKED(host_num, 1)])            , (downstream_axi_awlock));
-    `assert_equal((upstream_axi_awprot  [`ACCESS_PACKED(host_num, 3)])            , (downstream_axi_awprot));
-end endtask
-
-task upstream_aw_op;
-input [HOST_NUMBER_CLOG2-1:0] host_num;
-input [ADDR_WIDTH-1:0] addr;
-input [7:0] len;
-input [2:0] size;
-input [1:0] burst;
-input [ID_WIDTH-1:0] id;
-input [0:0] lock;
-input [2:0] prot;
-begin
-	upstream_axi_awvalid[host_num] = 1;
-
-	upstream_axi_awaddr  [`ACCESS_PACKED(host_num, ADDR_WIDTH)]  = $urandom & ({ADDR_WIDTH{1'b1}});
-	upstream_axi_awlen   [`ACCESS_PACKED(host_num, 8)]           = $urandom & ({8{1'b1}});
-	upstream_axi_awsize  [`ACCESS_PACKED(host_num, 3)]           = $urandom & ({3{1'b1}});
-	upstream_axi_awburst [`ACCESS_PACKED(host_num, 2)]           = $urandom & ({2{1'b1}});
-	upstream_axi_awid    [`ACCESS_PACKED(host_num, ID_WIDTH)]    = $urandom & ({ID_WIDTH{1'b1}});
-    upstream_axi_awlock  [`ACCESS_PACKED(host_num, 1)]           = $urandom & ({1{1'b1}});
-    upstream_axi_awprot  [`ACCESS_PACKED(host_num, 3)]           = $urandom & ({3{1'b1}});
-end endtask
-
-
-task upstream_aw_expect;
-input [HOST_NUMBER_CLOG2-1:0] host_num;
-input awready;
-begin
-	`assert_equal(upstream_axi_awready[`ACCESS_PACKED(host_num, 1)], awready);
-end endtask
-
-
-
-
-//-------------W---------------
-task w_noop; begin
-	axi_wvalid = 0;
-end endtask
-
-task w_op;
-input [DATA_WIDTH-1:0] wdata;
-input [DATA_STROBES-1:0] wstrb;
-begin
-	axi_wvalid = 1;
-	axi_wdata = wdata;
-	axi_wstrb = wstrb;
-	axi_wlast = 1;
-end endtask
-
-task w_expect;
-input wready;
-begin
-	`assert_equal(axi_wready, wready)
-end endtask
-
-//-------------B---------------
-task b_noop; begin
-	axi_bready = 0;
-end endtask
-
-task b_expect;
 input valid;
-input [1:0] resp;
-input [ID_WIDTH-1:0] id;
 begin
-	`assert_equal(axi_bvalid, valid)
-	if(valid) begin
-		`assert_equal(axi_bresp, resp)
-		`assert_equal(axi_bid, id)
-	end
+    `assert_equal((downstream_axi_arvalid)                                        , (valid));
+    if(valid) begin
+    `assert_equal((upstream_axi_araddr  [`ACCESS_PACKED(host_num, ADDR_WIDTH)])   , (downstream_axi_araddr));
+    `assert_equal((upstream_axi_arlen   [`ACCESS_PACKED(host_num, 8)])            , (downstream_axi_arlen));
+    `assert_equal((upstream_axi_arsize  [`ACCESS_PACKED(host_num, 3)])            , (downstream_axi_arsize));
+    `assert_equal((upstream_axi_arburst [`ACCESS_PACKED(host_num, 2)])            , (downstream_axi_arburst));
+    `assert_equal((upstream_axi_arid    [`ACCESS_PACKED(host_num, ID_WIDTH)])     , (downstream_axi_arid));
+    `assert_equal((upstream_axi_arlock  [`ACCESS_PACKED(host_num, 1)])            , (downstream_axi_arlock));
+    `assert_equal((upstream_axi_arprot  [`ACCESS_PACKED(host_num, 3)])            , (downstream_axi_arprot));
+    end
 end endtask
-*/
-
 
 task upstream_ar_op;
 input [HOST_NUMBER_CLOG2-1:0] host_num;
+input valid;
 begin
-	upstream_axi_arvalid[host_num] = 1;
+	upstream_axi_arvalid[host_num] = valid;
 
 	upstream_axi_araddr  [`ACCESS_PACKED(host_num, ADDR_WIDTH)]  = $urandom & ({ADDR_WIDTH{1'b1}});
 	upstream_axi_arlen   [`ACCESS_PACKED(host_num, 8)]           = $urandom & ({8{1'b1}});
@@ -189,32 +113,6 @@ begin
 end endtask
 
 
-task upstream_ar_noop;
-input [HOST_NUMBER_CLOG2-1:0] host_num;
-begin
-    upstream_ar_op(host_num);
-    upstream_axi_arvalid[host_num] = 0;
-end
-endtask
-
-task downstream_ar_op;
-input arready;
-begin
-    downstream_axi_arready = arready;
-end endtask
-
-task expect_downstream_ar;
-input [HOST_NUMBER_CLOG2-1:0] host_num;
-begin
-    `assert_equal((upstream_axi_araddr  [`ACCESS_PACKED(host_num, ADDR_WIDTH)])   , (downstream_axi_araddr));
-    `assert_equal((upstream_axi_arlen   [`ACCESS_PACKED(host_num, 8)])            , (downstream_axi_arlen));
-    `assert_equal((upstream_axi_arsize  [`ACCESS_PACKED(host_num, 3)])            , (downstream_axi_arsize));
-    `assert_equal((upstream_axi_arburst [`ACCESS_PACKED(host_num, 2)])            , (downstream_axi_arburst));
-    `assert_equal((upstream_axi_arid    [`ACCESS_PACKED(host_num, ID_WIDTH)])     , (downstream_axi_arid));
-    `assert_equal((upstream_axi_arlock  [`ACCESS_PACKED(host_num, 1)])            , (downstream_axi_arlock));
-    `assert_equal((upstream_axi_arprot  [`ACCESS_PACKED(host_num, 3)])            , (downstream_axi_arprot));
-end endtask
-
 task upstream_ar_expect;
 input [HOST_NUMBER_CLOG2-1:0] host_num;
 input [0:0] ready;
@@ -222,89 +120,139 @@ begin
     `assert_equal((upstream_axi_arready  [`ACCESS_PACKED(host_num, 1)]), ready);
 end endtask
 
-/*
-//-------------R---------------
-task r_noop; begin
-	axi_rready = 0;
-end endtask
+    // --------------------------
+    // R channel
+    // --------------------------
 
-task r_expect;
+task downstream_r_op;
 input valid;
-input [1:0] resp;
-input [DATA_WIDTH-1:0] data;
-input [ID_WIDTH-1:0] id;
 input last;
 begin
-	`assert_equal(axi_rvalid, valid)
-	if(valid) begin
-		`assert_equal(axi_rresp, resp)
-		if(resp <= 2'b01)
-			`assert_equal(axi_rdata, data)
-		`assert_equal(axi_rid, id)
-		`assert_equal(axi_rlast, last)
-	end
+	downstream_axi_rvalid = valid;
+    downstream_axi_rlast = last;
+
+	downstream_axi_rdata = $urandom & ({DATA_WIDTH{1'b1}});
+    downstream_axi_rresp = $urandom & ({2{1'b1}});
+    downstream_axi_rid = $urandom & ({ID_WIDTH{1'b1}});
+    
+end endtask
+
+task upstream_r_op;
+input [HOST_NUMBER_CLOG2-1:0] host_num;
+input ready;
+begin
+	upstream_axi_rready[host_num] = ready;
 end endtask
 
 
-//-------------Others---------------
-task poke_all;
-input aw;
-input w;
-input b;
-
-input ar;
-input r; begin
-	if(aw === 1)
-		aw_noop();
-	if(w === 1)
-		w_noop();
-	if(b === 1)
-		b_noop();
-	if(ar === 1)
-		ar_noop();
-	if(r === 1)
-		r_noop();
+task upstream_r_expect;
+input [HOST_NUMBER_CLOG2-1:0] host_num;
+input valid;
+begin
+    `assert_equal((upstream_axi_rvalid [`ACCESS_PACKED(host_num, 1)])            , (valid));
+    if(valid) begin
+    `assert_equal((upstream_axi_rdata  [`ACCESS_PACKED(host_num, DATA_WIDTH)])   , (downstream_axi_rdata));
+    `assert_equal((upstream_axi_rresp  [`ACCESS_PACKED(host_num, 2)])            , (downstream_axi_rresp));
+    `assert_equal((upstream_axi_rid    [`ACCESS_PACKED(host_num, ID_WIDTH)])     , (downstream_axi_rid));
+    `assert_equal((upstream_axi_rlast  [`ACCESS_PACKED(host_num, 1)])            , (downstream_axi_rlast));
+    end
 end endtask
 
-task expect_all;
-input aw;
-input w;
-input b;
-
-input ar;
-input r; begin
-	if(aw === 1)
-		aw_expect(0);
-	if(w === 1)
-		w_expect(0);
-	if(b === 1)
-		b_expect(0, 2'bZZ, 4'bZZZZ);
-	if(ar === 1)
-		ar_expect(0);
-	if(r === 1)
-		r_expect(0, 2'bZZ, 32'hZZZZ_ZZZZ, 2'bZZ, 1'bZ);
+task downstream_r_expect;
+input ready;
+begin
+    `assert_equal(downstream_axi_rready, ready);
 end endtask
-*/
+
+logic [HOST_NUMBER_CLOG2-1:0] host_num;
 
 initial begin
     integer i;
     integer word;
     @(posedge rst_n);
+    // --------------------------
+    // No operation at all:
+    // --------------------------
 
+    // poke ar channel
     for(i = 0; i < HOST_NUMBER; i = i + 1) begin
-        upstream_ar_noop(i);
+        upstream_ar_op(i, /*arvalid=*/0);
         
     end
-    downstream_ar_op(0);
+    downstream_ar_op(/*arready=*/0);
+    // poke R channel
+    downstream_r_op(/*valid=*/0, /*last=*/0);
+    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+        upstream_r_op(i, /*ready=*/0);
+    end
+    
     #5
     for(i = 0; i < HOST_NUMBER; i = i + 1) begin
-        upstream_ar_expect(i, 0);
+        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+        upstream_r_expect (/*host_num=*/i, /*valid=*/0);
     end
-    @(negedge clk);
+    downstream_ar_expect(/*host_num=*/0, /*valid=*/0);
+    downstream_r_expect(0);
+
     
+    @(negedge clk);
+    // ------------------------------------------------------------------------------
+    // 
+    $display("1. Test case. AR wait, AR cycle, R wait, R cycle last=0, R wait, R cycle last = 1");
+    //
+    // ------------------------------------------------------------------------------
+
+    // ------------------------------------------------------------------------------
+    $display("AR wait");
+    // ------------------------------------------------------------------------------
+    host_num = $urandom % HOST_NUMBER;
+    upstream_ar_op(host_num, /*arvalid=*/1);
+
+    #5
+    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+        upstream_r_expect (/*host_num=*/i, /*valid=*/0);
+    end
+    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/1);
+    downstream_r_expect(0);
 
     @(negedge clk);
     
+    // ------------------------------------------------------------------------------
+    $display("AR cycle");
+    // ------------------------------------------------------------------------------
+    downstream_ar_op(/*arready=*/1);
+
+    #5
+    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+        upstream_ar_expect(/*host_num=*/i, /*ready=*/i == host_num ? 1 : 0);
+        upstream_r_expect (/*host_num=*/i, /*valid=*/0);
+    end
+    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/1);
+    downstream_r_expect(0);
+    
+    @(negedge clk);
+    // ------------------------------------------------------------------------------
+    $display("R wait");
+    // ------------------------------------------------------------------------------
+    upstream_ar_op(host_num, /*arvalid=*/0);
+    downstream_ar_op(/*arready=*/0);
+    downstream_r_op(/*rvalid=*/1, /*rlast=*/0);
+    upstream_r_op(host_num, /*rready=*/0);
+
+    #5
+    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+        upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
+    end
+    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
+    downstream_r_expect(0);
+
+
+
+    @(negedge clk);
+
+
     @(negedge clk);
     @(negedge clk);
 
