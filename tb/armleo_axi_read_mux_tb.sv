@@ -251,9 +251,87 @@ initial begin
 
 
     @(negedge clk);
+    // ------------------------------------------------------------------------------
+    $display("R cycle");
+    // ------------------------------------------------------------------------------
+    upstream_ar_op(host_num, /*arvalid=*/0);
+    downstream_ar_op(/*arready=*/0);
+    downstream_r_op(/*rvalid=*/1, /*rlast=*/0);
+    upstream_r_op(host_num, /*rready=*/1);
+
+    #5
+    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+        upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
+    end
+    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
+    downstream_r_expect(1);
+
+    @(negedge clk);
+    // ------------------------------------------------------------------------------
+    $display("R wait last=1");
+    // ------------------------------------------------------------------------------
+    upstream_ar_op(host_num, /*arvalid=*/0);
+    downstream_ar_op(/*arready=*/0);
+    downstream_r_op(/*rvalid=*/1, /*rlast=*/1);
+    upstream_r_op(host_num, /*rready=*/0);
+
+    #5
+    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+        upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
+    end
+    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
+    downstream_r_expect(0);
+
 
 
     @(negedge clk);
+    // ------------------------------------------------------------------------------
+    $display("R cycle last=1");
+    // ------------------------------------------------------------------------------
+    upstream_ar_op(host_num, /*arvalid=*/0);
+    downstream_ar_op(/*arready=*/0);
+    downstream_r_op(/*rvalid=*/1, /*rlast=*/1);
+    upstream_r_op(host_num, /*rready=*/1);
+
+    #5
+    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+        upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
+    end
+    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
+    downstream_r_expect(1);
+    @(negedge clk);
+
+
+    // ------------------------------------------------------------------------------
+    // 
+    $display("2. Test case. AR cycle, R cycle last=1");
+    //
+    // ------------------------------------------------------------------------------
+
+
+
+
+    // ------------------------------------------------------------------------------
+    // 
+    // $display("TODO: 3. Test case. AR cycle on two buses, R cycle last=1");
+    //
+    // ------------------------------------------------------------------------------
+
+
+    // ------------------------------------------------------------------------------
+    // 
+    // $display("TODO: 4. Test case. AR cycle on two buses, R cycle ready on many buses last=1");
+    //
+    // ------------------------------------------------------------------------------
+    
+
+
+
+
+
     @(negedge clk);
 
     `assert_finish;
