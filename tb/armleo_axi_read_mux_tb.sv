@@ -164,11 +164,160 @@ begin
     `assert_equal(downstream_axi_rready, ready);
 end endtask
 
+logic [HOST_NUMBER_CLOG2-1:0] last_host_num;
+
 logic [HOST_NUMBER_CLOG2-1:0] host_num;
 
+logic found_priority_host;
+
+integer i;
+integer cycle_counter;
+
+
+
+task find_priority_request;
+input [HOST_NUMBER-1:0] requests;
+begin
+    found_priority_host = 0;
+
+    for(i = last_host_num + 1; i < HOST_NUMBER; i = i + 1) begin
+        if (!found_priority_host && requests[i]) begin
+            found_priority_host = 1;
+            host_num = i;
+            last_host_num = i;
+        end
+    end
+
+    for(i = 0; i < last_host_num + 1; i = i + 1) begin
+        if (!found_priority_host && requests[i]) begin
+            found_priority_host = 1;
+            host_num = i;
+            last_host_num = i;
+        end
+    end
+end endtask
+
+task test_case;
+input [HOST_NUMBER-1:0] requests;
+input [31:0] ar_wait;
+input [31:0] r_wait;
+begin
+    
+    find_priority_request(requests);
+
+    for(cycle_counter = 0; cycle_counter < ar_wait; cycle_counter = cycle_counter + 1) begin
+        // ------------------------------------------------------------------------------
+        $display("AR wait");
+        // ------------------------------------------------------------------------------
+        
+        for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+            upstream_ar_op(i, /*arvalid=*/requests[i]);
+        end
+        downstream_ar_op(/*arready=*/0); // If cycle, overwise zero
+
+        #5
+        for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+            upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+            upstream_r_expect (/*host_num=*/i, /*valid=*/0);
+        end
+        downstream_ar_expect(/*host_num=*/host_num, /*valid=*/1);
+        downstream_r_expect(0);
+        @(negedge clk);
+    end
+
+
+
+    // ------------------------------------------------------------------------------
+    $display("AR cycle");
+    // ------------------------------------------------------------------------------
+    
+    downstream_ar_op(/*arready=*/1); // If cycle, overwise zero
+    #5
+
+    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+        upstream_ar_expect(/*host_num=*/i, /*ready=*/i == host_num ? 1 : 0);
+        upstream_r_expect (/*host_num=*/i, /*valid=*/0);
+    end
+    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/1);
+    downstream_r_expect(0);
+    @(negedge clk);
+
+
+    // // ------------------------------------------------------------------------------
+    // $display("R wait");
+    // // ------------------------------------------------------------------------------
+    // upstream_ar_op(host_num, /*arvalid=*/0);
+    // downstream_ar_op(/*arready=*/0);
+    // downstream_r_op(/*rvalid=*/1, /*rlast=*/0);
+    // upstream_r_op(host_num, /*rready=*/0);
+
+    // #5
+    // for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+    //     upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+    //     upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
+    // end
+    // downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
+    // downstream_r_expect(0);
+
+
+
+    // @(negedge clk);
+    // // ------------------------------------------------------------------------------
+    // $display("R cycle");
+    // // ------------------------------------------------------------------------------
+    // upstream_ar_op(host_num, /*arvalid=*/0);
+    // downstream_ar_op(/*arready=*/0);
+    // downstream_r_op(/*rvalid=*/1, /*rlast=*/0);
+    // upstream_r_op(host_num, /*rready=*/1);
+
+    // #5
+    // for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+    //     upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+    //     upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
+    // end
+    // downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
+    // downstream_r_expect(1);
+
+    // @(negedge clk);
+    // // ------------------------------------------------------------------------------
+    // $display("R wait last=1");
+    // // ------------------------------------------------------------------------------
+    // upstream_ar_op(host_num, /*arvalid=*/0);
+    // downstream_ar_op(/*arready=*/0);
+    // downstream_r_op(/*rvalid=*/1, /*rlast=*/1);
+    // upstream_r_op(host_num, /*rready=*/0);
+
+    // #5
+    // for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+    //     upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+    //     upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
+    // end
+    // downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
+    // downstream_r_expect(0);
+
+
+
+    // @(negedge clk);
+    // // ------------------------------------------------------------------------------
+    // $display("R cycle last=1");
+    // // ------------------------------------------------------------------------------
+    // upstream_ar_op(host_num, /*arvalid=*/0);
+    // downstream_ar_op(/*arready=*/0);
+    // downstream_r_op(/*rvalid=*/1, /*rlast=*/1);
+    // upstream_r_op(host_num, /*rready=*/1);
+
+    // #5
+    // for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+    //     upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+    //     upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
+    // end
+    // downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
+    // downstream_r_expect(1);
+    // @(negedge clk);
+end endtask
+
 initial begin
-    integer i;
-    integer word;
+    last_host_num = 0;
     @(posedge rst_n);
     // --------------------------
     // No operation at all:
@@ -194,139 +343,93 @@ initial begin
     downstream_ar_expect(/*host_num=*/0, /*valid=*/0);
     downstream_r_expect(0);
 
+
+     // ------------------------------------------------------------------------------
+     $display("Testing find_priority_request");
+     // ------------------------------------------------------------------------------
+
+    find_priority_request(1 << 1);
+    $display("host_num = %d; found_priority_host = %d", host_num, found_priority_host);
+    `assert_equal(host_num, 1)
+    `assert_equal(found_priority_host, 1)
+
+    find_priority_request(1 << 1);
+    $display("host_num = %d; found_priority_host = %d", host_num, found_priority_host);
+    `assert_equal(host_num, 1)
+    `assert_equal(found_priority_host, 1)
+
+    find_priority_request((1 << 1) | (1 << 2));
+    $display("host_num = %d; found_priority_host = %d", host_num, found_priority_host);
+    `assert_equal(host_num, 2)
+    `assert_equal(found_priority_host, 1)
+
+    find_priority_request((1 << 2) | (1 << 1));
+    $display("host_num = %d; found_priority_host = %d", host_num, found_priority_host);
+    `assert_equal(host_num, 1)
+    `assert_equal(found_priority_host, 1)
+
+
+    test_case(1 << 1, /*arwait=*/2, /*rwait*/2);
+
+    // @(negedge clk);
+    // test_case(1 << ($urandom % HOST_NUMBER), )
+    // // ------------------------------------------------------------------------------
+    // // 
+    // $display("1. Test case. AR wait, AR cycle, R wait, R cycle last=0, R wait, R cycle last = 1");
+    // //
+    // // ------------------------------------------------------------------------------
+
     
-    @(negedge clk);
-    // ------------------------------------------------------------------------------
-    // 
-    $display("1. Test case. AR wait, AR cycle, R wait, R cycle last=0, R wait, R cycle last = 1");
-    //
-    // ------------------------------------------------------------------------------
 
-    // ------------------------------------------------------------------------------
-    $display("AR wait");
-    // ------------------------------------------------------------------------------
-    host_num = $urandom % HOST_NUMBER;
-    upstream_ar_op(host_num, /*arvalid=*/1);
 
-    #5
-    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
-        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
-        upstream_r_expect (/*host_num=*/i, /*valid=*/0);
-    end
-    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/1);
-    downstream_r_expect(0);
+    // // ------------------------------------------------------------------------------
+    // // 
+    // $display("2. Test case. AR cycle, R cycle last=1");
+    // //
+    // // ------------------------------------------------------------------------------
 
-    @(negedge clk);
-    
-    // ------------------------------------------------------------------------------
-    $display("AR cycle");
-    // ------------------------------------------------------------------------------
-    downstream_ar_op(/*arready=*/1);
+    // host_num = $urandom % HOST_NUMBER;
+    // upstream_ar_op(host_num, /*arvalid=*/1);
+    // downstream_ar_op(/*arready=*/1);
+    // downstream_r_op(/*rvalid=*/0, /*rlast=*/1);
 
-    #5
-    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
-        upstream_ar_expect(/*host_num=*/i, /*ready=*/i == host_num ? 1 : 0);
-        upstream_r_expect (/*host_num=*/i, /*valid=*/0);
-    end
-    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/1);
-    downstream_r_expect(0);
-    
-    @(negedge clk);
-    // ------------------------------------------------------------------------------
-    $display("R wait");
-    // ------------------------------------------------------------------------------
-    upstream_ar_op(host_num, /*arvalid=*/0);
-    downstream_ar_op(/*arready=*/0);
-    downstream_r_op(/*rvalid=*/1, /*rlast=*/0);
-    upstream_r_op(host_num, /*rready=*/0);
-
-    #5
-    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
-        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
-        upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
-    end
-    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
-    downstream_r_expect(0);
+    // #5
+    // for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+    //     upstream_ar_expect(/*host_num=*/i, /*ready=*/i == host_num ? 1 : 0);
+    //     upstream_r_expect (/*host_num=*/i, /*valid=*/0);
+    // end
+    // downstream_ar_expect(/*host_num=*/host_num, /*valid=*/1);
+    // downstream_r_expect(0);
+    // @(negedge clk);
 
 
 
-    @(negedge clk);
-    // ------------------------------------------------------------------------------
-    $display("R cycle");
-    // ------------------------------------------------------------------------------
-    upstream_ar_op(host_num, /*arvalid=*/0);
-    downstream_ar_op(/*arready=*/0);
-    downstream_r_op(/*rvalid=*/1, /*rlast=*/0);
-    upstream_r_op(host_num, /*rready=*/1);
+    // upstream_ar_op(host_num, /*arvalid=*/0);
+    // downstream_ar_op(/*arready=*/0);
+    // downstream_r_op(/*rvalid=*/1, /*rlast=*/0);
+    // upstream_r_op(host_num, /*rready=*/1);
 
-    #5
-    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
-        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
-        upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
-    end
-    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
-    downstream_r_expect(1);
-
-    @(negedge clk);
-    // ------------------------------------------------------------------------------
-    $display("R wait last=1");
-    // ------------------------------------------------------------------------------
-    upstream_ar_op(host_num, /*arvalid=*/0);
-    downstream_ar_op(/*arready=*/0);
-    downstream_r_op(/*rvalid=*/1, /*rlast=*/1);
-    upstream_r_op(host_num, /*rready=*/0);
-
-    #5
-    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
-        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
-        upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
-    end
-    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
-    downstream_r_expect(0);
+    // #5
+    // for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+    //     upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
+    //     upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
+    // end
+    // downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
+    // downstream_r_expect(1);
+    // @(negedge clk);
+    // // ------------------------------------------------------------------------------
+    // // 
+    // // $display("TODO: 3. Test case. AR cycle on two buses, R cycle last=1");
+    // //
+    // // ------------------------------------------------------------------------------
 
 
+    // // ------------------------------------------------------------------------------
+    // // 
+    // // $display("TODO: 4. Test case. AR cycle on two buses, R cycle ready on many buses last=1");
+    // //
+    // // ------------------------------------------------------------------------------
 
-    @(negedge clk);
-    // ------------------------------------------------------------------------------
-    $display("R cycle last=1");
-    // ------------------------------------------------------------------------------
-    upstream_ar_op(host_num, /*arvalid=*/0);
-    downstream_ar_op(/*arready=*/0);
-    downstream_r_op(/*rvalid=*/1, /*rlast=*/1);
-    upstream_r_op(host_num, /*rready=*/1);
-
-    #5
-    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
-        upstream_ar_expect(/*host_num=*/i, /*ready=*/0);
-        upstream_r_expect (/*host_num=*/i, /*valid=*/i == host_num ? 1 : 0);
-    end
-    downstream_ar_expect(/*host_num=*/host_num, /*valid=*/0);
-    downstream_r_expect(1);
-    @(negedge clk);
-
-
-    // ------------------------------------------------------------------------------
-    // 
-    $display("2. Test case. AR cycle, R cycle last=1");
-    //
-    // ------------------------------------------------------------------------------
-
-
-
-
-    // ------------------------------------------------------------------------------
-    // 
-    // $display("TODO: 3. Test case. AR cycle on two buses, R cycle last=1");
-    //
-    // ------------------------------------------------------------------------------
-
-
-    // ------------------------------------------------------------------------------
-    // 
-    // $display("TODO: 4. Test case. AR cycle on two buses, R cycle ready on many buses last=1");
-    //
-    // ------------------------------------------------------------------------------
-    
 
 
 
