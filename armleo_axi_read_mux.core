@@ -37,7 +37,7 @@ targets:
     tools:
       icarus:
         iverilog_options:
-          - -g2012 # Use SystemVerilog-2012
+          - -DARMLEO_AXI_READ_MUX_DEBUG -g2012 # Use SystemVerilog-2012
       modelsim:
         vlog_options:
           - -timescale=1ns/1ns

@@ -56,6 +56,8 @@ logic arbiter_decision_request; // comb
 logic [HOST_NUMBER-1:0] grant; // comb
 logic [HOST_NUMBER_CLOG2-1:0] grant_idx;
 
+logic rr_ack; // comb
+
 logic [HOST_NUMBER-1:0] lock; // ff, Contains locked grant signal
 logic [HOST_NUMBER-1:0] lock_nxt; // comb, lock ff's D pins
 
@@ -76,7 +78,8 @@ armleo_round_robin #(.WIDTH(HOST_NUMBER)) ar_arbiter (
     .rst_n(rst_n),
     .request({upstream_axi_arvalid} & {HOST_NUMBER{arbiter_decision_request}}),
     .grant(grant),
-    .grant_idx(grant_idx)
+    .grant_idx(grant_idx),
+    .ack(rr_ack)
 );
 
 
@@ -99,17 +102,22 @@ always @(*) begin
     ar_done_nxt = ar_done;
     lock_nxt = lock;
     arbiter_decision_request = 0;
+    rr_ack = 0;
 
     r_select = 0;
 
     ar_select = 0;
+    
 
     if(!(|lock)) begin // No decision has been made yet
         arbiter_decision_request = 1; // Ask arbiter for decision
         lock_nxt = grant; // Save decision
         ar_select = grant; // Passthrough the transaction early
         // As we are only passing through the ar, there is no need to check the R
-        if(upstream_axi_arvalid[ar_select_idx] && upstream_axi_arready[ar_select_idx]) begin
+        if(|upstream_axi_arvalid) begin
+            rr_ack = 1;
+        end
+        if((|lock_nxt) && upstream_axi_arvalid[ar_select_idx] && upstream_axi_arready[ar_select_idx]) begin
             ar_done_nxt = 1; // set ar done
         end else begin
             ar_done_nxt = 0; // Reset ar done
@@ -129,6 +137,20 @@ always @(*) begin
         end
     end
 end
+
+`ifdef ARMLEO_AXI_READ_MUX_DEBUG
+always @(posedge clk) begin
+    if(!rst_n) begin
+
+    end else begin
+        if(!(|lock)) begin
+            if(lock_nxt) begin
+                $display("Found request, selected=%d", ar_select_idx);
+            end
+        end
+    end
+end
+`endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // 
