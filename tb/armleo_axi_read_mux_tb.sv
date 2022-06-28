@@ -234,7 +234,9 @@ begin
     // ------------------------------------------------------------------------------
     $display("AR cycle");
     // ------------------------------------------------------------------------------
-    
+    for(i = 0; i < HOST_NUMBER; i = i + 1) begin
+        upstream_ar_op(i, /*arvalid=*/requests[i]);
+    end
     downstream_ar_op(/*arready=*/1); // If cycle, overwise zero
     #5
     $display("arready=%b, expected = %b", upstream_axi_arready, 1 << host_num);
@@ -285,6 +287,8 @@ begin
 
         @(negedge clk);
 
+        upstream_ar_op(host_num, /*arvalid=*/0);
+        downstream_ar_op(/*arready=*/0);
         upstream_r_op(host_num, /*rready=*/0);
         downstream_r_op(/*rvalid=*/0, /*rlast=*/r_transaction_counter == r_transactions - 1);
     end
@@ -347,10 +351,13 @@ initial begin
     test_case((1 << 1) | (1 << 2), /*arwait=*/1, /*rwait*/1, /*r_transactions*/1);
     test_case((1 << 1) | (1 << 2), /*arwait=*/1, /*rwait*/1, /*r_transactions*/1);
     test_case(1 << 1, /*arwait=*/1, /*rwait*/2, /*r_transactions*/2);
-    $display("Hello");
+    $display("First sections done");
     test_case((1 << 1) | (1 << 2), /*arwait=*/2, /*rwait*/2, /*r_transactions*/2);
     test_case((1 << 1) | (1 << 2), /*arwait=*/2, /*rwait*/2, /*r_transactions*/2);
-
+    $display("Second sections done");
+    test_case((1 << 1) | (1 << 2) | (1 << 3), /*arwait=*/0, /*rwait*/0, /*r_transactions*/1);
+    test_case((1 << 1) | (1 << 2) | (1 << 3), /*arwait=*/0, /*rwait*/0, /*r_transactions*/2);
+    $display("Third sections done");
     // @(negedge clk);
     // test_case(1 << ($urandom % HOST_NUMBER), )
     // // ------------------------------------------------------------------------------

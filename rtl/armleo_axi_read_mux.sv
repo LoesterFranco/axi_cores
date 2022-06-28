@@ -123,7 +123,7 @@ always @(*) begin
             ar_done_nxt = 0; // Reset ar done
         end
     end else begin // We have a decision
-        ar_select = lock & {HOST_NUMBER{!ar_done_nxt}};  // Passthrough the transaction, but only if we didnt pass it yet
+        ar_select = lock & {HOST_NUMBER{!ar_done}};  // Passthrough the transaction, but only if we didnt pass it yet
         
         r_select = lock;
         if(upstream_axi_arvalid[ar_select_idx] && upstream_axi_arready[ar_select_idx]) begin
@@ -145,7 +145,17 @@ always @(posedge clk) begin
     end else begin
         if(!(|lock)) begin
             if(lock_nxt) begin
-                $display("Found request, selected=%d", ar_select_idx);
+                $display("[%d] [ARMLEO_AXI_READ_MUX_DEBUG] Found request, selected=%d; ar_done_nxt = %d", $time, ar_select_idx, ar_done_nxt);
+            end
+        end else begin
+            if(upstream_axi_arvalid[ar_select_idx] && upstream_axi_arready[ar_select_idx]) begin
+                $display("[%d] [ARMLEO_AXI_READ_MUX_DEBUG] ar_done_nxt = %d", $time, ar_done_nxt);
+            end
+
+            if(
+                (ar_done && downstream_axi_rvalid && downstream_axi_rready && downstream_axi_rlast)
+            ) begin
+                $display("[%d] [ARMLEO_AXI_READ_MUX_DEBUG] One transaction done r_select = %d", $time, r_select);
             end
         end
     end
